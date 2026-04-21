@@ -1,0 +1,17 @@
+{
+  "name": "ニホンジカ糞塊密度調査 Pro",
+  "short_name": "DeerSurvey",
+  "description": "ニホンジカ糞塊密度調査の入力、保存、集計を行う完全オフライン対応アプリ",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1b4332",
+  "theme_color": "#1b4332",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
