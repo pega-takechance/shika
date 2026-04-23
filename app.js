@@ -15,7 +15,33 @@ document.addEventListener('DOMContentLoaded', () => {
     setupForm();
     setupLogManager();
     setupJobSettings();
+    setupDynamicPadding();
 });
+
+function setupDynamicPadding() {
+    const adjustPadding = () => {
+        const activeScreen = document.querySelector('.screen.active');
+        const bottomBar = activeScreen ? activeScreen.querySelector('.bottom-bar') : null;
+        const content = document.querySelector('.app-content');
+        if (content) {
+            if (bottomBar) {
+                content.style.paddingBottom = (bottomBar.offsetHeight + 24) + 'px';
+            } else {
+                content.style.paddingBottom = '24px';
+            }
+        }
+    };
+    
+    window.addEventListener('resize', adjustPadding);
+    
+    // Observer to detect screen changes
+    const observer = new MutationObserver(adjustPadding);
+    document.querySelectorAll('.screen').forEach(screen => {
+        observer.observe(screen, { attributes: true, attributeFilter: ['class'] });
+    });
+    
+    setTimeout(adjustPadding, 100);
+}
 
 // Virtual Data Injection for Debugging
 function injectVirtualData() {
