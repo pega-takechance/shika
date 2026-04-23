@@ -1,4 +1,4 @@
-const CACHE_NAME = 'deer-survey-pro-v5';
+const CACHE_NAME = 'deer-survey-pro-v6';
 const ASSETS = [
     './',
     './index.html',

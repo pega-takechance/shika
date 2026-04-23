@@ -10,12 +10,58 @@ let areaCount = 0;
 document.addEventListener('DOMContentLoaded', () => {
     loadLogs();
     loadJobs();
+    injectVirtualData();
     setupNavigation();
     setupForm();
     setupLogManager();
-    setupAnalysis();
     setupJobSettings();
 });
+
+// Virtual Data Injection for Debugging
+function injectVirtualData() {
+    if (currentLogs.length === 0) {
+        const dummyData = [
+            {
+                id: "dummy_1",
+                timestamp: new Date().toISOString(),
+                date: "2026-04-20",
+                start: "09:00",
+                end: "10:30",
+                weather: "晴れ",
+                project: "仮想データテスト調査",
+                surveyor: "テスト調査員A",
+                mesh: "5339-12",
+                cannot_survey: "無",
+                areas: [
+                    { id: 1, vegetation: "A, C", undergrowth: "少ない", sasa: "なし", deer_male: 2, deer_female: 1, footprint: 0, voice: 1, pellet_new: 10, pellet_mid: 5, pellet_old: 2, pellet_under10_new: 0, pellet_under10_mid: 0, pellet_under10_old: 0, notes: "シカを目撃" },
+                    { id: 2, vegetation: "B", undergrowth: "多い", sasa: "多い", deer_male: 0, deer_female: 0, footprint: 3, voice: 0, pellet_new: 0, pellet_mid: 15, pellet_old: 8, pellet_under10_new: 2, pellet_under10_mid: 1, pellet_under10_old: 0, notes: "足跡多数" }
+                ]
+            },
+            {
+                id: "dummy_2",
+                timestamp: new Date().toISOString(),
+                date: "2026-04-21",
+                start: "11:00",
+                end: "12:00",
+                weather: "曇り",
+                project: "仮想データテスト調査",
+                surveyor: "テスト調査員B",
+                mesh: "5339-13",
+                cannot_survey: "無",
+                areas: [
+                    { id: 1, vegetation: "D", undergrowth: "極多", sasa: "少ない", deer_male: 0, deer_female: 3, footprint: 1, voice: 0, pellet_new: 0, pellet_mid: 0, pellet_old: 0, pellet_under10_new: 0, pellet_under10_mid: 0, pellet_under10_old: 0, notes: "メス鹿の群れ" }
+                ]
+            }
+        ];
+        currentLogs = dummyData;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(currentLogs));
+        
+        if (!jobNames.includes("仮想データテスト調査")) {
+            jobNames.push("仮想データテスト調査");
+            localStorage.setItem(JOBS_KEY, JSON.stringify(jobNames));
+        }
+    }
+}
 
 function loadJobs() {
     const saved = localStorage.getItem(JOBS_KEY);
@@ -652,7 +698,7 @@ function exportToCSV() {
         return;
     }
 
-    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+    let csvContent = "\uFEFF";
     // Header
     const headers = [
         "ID", "日付", "開始", "終了", "天候", "業務名", "調査者", "メッシュNO", "調査不能",
@@ -664,11 +710,11 @@ function exportToCSV() {
     currentLogs.forEach(log => {
         log.areas.forEach(area => {
             const row = [
-                log.id, log.date, log.start, log.end, log.weather, log.project, log.surveyor, log.mesh, log.cannot_survey || '無',
+                `"${log.id}"`, `"${log.date}"`, `"${log.start}"`, `"${log.end}"`, `"${log.weather}"`, `"${log.project || ''}"`, `"${log.surveyor || ''}"`, `"${log.mesh || ''}"`, `"${log.cannot_survey || '無'}"`,
                 area.id, 
-                area.vegetation, 
-                area.undergrowth,
-                area.sasa || '',
+                `"${area.vegetation || ''}"`, 
+                `"${area.undergrowth || ''}"`,
+                `"${area.sasa || ''}"`,
                 area.deer_male !== undefined ? area.deer_male : (area.deer || 0),
                 area.deer_female || 0,
                 area.footprint, area.voice,
@@ -680,11 +726,13 @@ function exportToCSV() {
         });
     });
 
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute("download", `deer_survey_${new Date().toISOString().slice(0,10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
