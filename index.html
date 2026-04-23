@@ -16,7 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     
     <!-- Apple Touch Icon for PWA -->
-    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon.jpg">
 </head>
 <body>
     <div id="app">
@@ -39,6 +39,25 @@
                 <div class="hero-section">
                     <h2>調査を開始する</h2>
                     <p>電波の届かない場所でも完全に動作します。</p>
+                </div>
+                
+                <div class="job-settings-section" style="margin-bottom: 24px;">
+                    <div class="form-section" style="margin-bottom: 0;">
+                        <h3 class="section-title">調査業務の設定</h3>
+                        <div class="input-group">
+                            <label for="home-job-select">登録済みの業務名から選択</label>
+                            <select id="home-job-select">
+                                <option value="">選択してください</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="home-job-input">新しい業務名を登録</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="home-job-input" placeholder="例: 令和5年度〇〇調査">
+                                <button type="button" id="btn-add-job" class="btn-secondary" style="white-space: nowrap;">登録</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="menu-grid">
@@ -106,7 +125,7 @@
                         </div>
                         <div class="input-group">
                             <label for="project-name">業務名</label>
-                            <input type="text" id="project-name" placeholder="例: 令和5年度〇〇調査">
+                            <input type="text" id="project-name" placeholder="スタート画面で設定してください" readonly style="background-color: var(--bg-main); color: var(--text-muted); pointer-events: none;">
                         </div>
                         <div class="input-group">
                             <label for="surveyor-name">調査者</label>
@@ -136,7 +155,11 @@
                     </button>
 
                     <div class="form-actions bottom-bar">
-                        <button type="submit" class="btn-primary btn-large">データを保存する</button>
+                        <button type="submit" class="btn-primary btn-large" style="margin-bottom: 12px;">データを保存する（完了）</button>
+                        <div style="display: flex; gap: 12px;">
+                            <button type="button" id="btn-suspend-survey" class="btn-secondary" style="flex: 1;">一時保存して中断</button>
+                            <button type="button" id="btn-cancel-survey" class="btn-danger" style="flex: 1;">保存せずに終了</button>
+                        </div>
                     </div>
                 </form>
             </section>

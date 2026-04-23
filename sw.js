@@ -1,11 +1,11 @@
-const CACHE_NAME = 'deer-survey-pro-v1';
+const CACHE_NAME = 'deer-survey-pro-v5';
 const ASSETS = [
     './',
     './index.html',
     './styles.css',
     './app.js',
     './manifest.json',
-    './icon.svg',
+    './icon.jpg',
     'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap'
 ];
 

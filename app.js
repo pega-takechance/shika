@@ -1,17 +1,87 @@
 // Constants & State
 const STORAGE_KEY = 'deer_survey_logs';
 const DRAFT_KEY = 'deer_survey_draft';
+const JOBS_KEY = 'deer_survey_jobs';
 let currentLogs = [];
+let jobNames = [];
 let areaCount = 0;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     loadLogs();
+    loadJobs();
     setupNavigation();
     setupForm();
     setupLogManager();
     setupAnalysis();
+    setupJobSettings();
 });
+
+function loadJobs() {
+    const saved = localStorage.getItem(JOBS_KEY);
+    if (saved) {
+        try { jobNames = JSON.parse(saved); } catch(e) { console.error('Parse error', e); }
+    }
+}
+
+function setupJobSettings() {
+    const select = document.getElementById('home-job-select');
+    const input = document.getElementById('home-job-input');
+    const btnAdd = document.getElementById('btn-add-job');
+    const projectInput = document.getElementById('project-name');
+
+    function renderJobSelect() {
+        select.innerHTML = '<option value="">選択してください</option>';
+        jobNames.forEach(job => {
+            const opt = document.createElement('option');
+            opt.value = job;
+            opt.textContent = job;
+            select.appendChild(opt);
+        });
+        
+        // 前回の入力内容を踏襲
+        const lastBaseInfo = localStorage.getItem('deer_survey_last_base_info');
+        if (lastBaseInfo) {
+            try {
+                const data = JSON.parse(lastBaseInfo);
+                if (data.project && jobNames.includes(data.project)) {
+                    select.value = data.project;
+                    projectInput.value = data.project;
+                }
+            } catch(e) {}
+        }
+    }
+
+    renderJobSelect();
+
+    select.addEventListener('change', () => {
+        projectInput.value = select.value;
+    });
+
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            btnAdd.click();
+        }
+    });
+
+    btnAdd.addEventListener('click', () => {
+        const val = input.value.trim();
+        if (val) {
+            if (!jobNames.includes(val)) {
+                jobNames.push(val);
+                localStorage.setItem(JOBS_KEY, JSON.stringify(jobNames));
+                renderJobSelect();
+                select.value = val;
+                projectInput.value = val;
+                input.value = '';
+                showToast('業務名を登録しました');
+            } else {
+                alert('既に登録されている業務名です');
+            }
+        }
+    });
+}
 
 // --- Navigation ---
 function setupNavigation() {
@@ -20,6 +90,11 @@ function setupNavigation() {
     
     // Set initial date to today
     document.getElementById('survey-date').valueAsDate = new Date();
+
+    // Set initial time to now
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    document.getElementById('survey-start-time').value = timeStr;
 
     document.querySelectorAll('[data-target]').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -74,6 +149,8 @@ function showScreen(screenId) {
 function setupForm() {
     const btnAddArea = document.getElementById('btn-add-area');
     const form = document.getElementById('survey-form');
+    const btnSuspend = document.getElementById('btn-suspend-survey');
+    const btnCancel = document.getElementById('btn-cancel-survey');
     
     // Add first area by default, or restore from draft
     if (!restoreSurveyDraft()) {
@@ -84,11 +161,33 @@ function setupForm() {
     btnAddArea.addEventListener('click', () => {
         addAreaBlock();
         saveSurveyDraft();
+        showToast('自動保存しました');
     });
 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         saveSurvey();
+    });
+
+    btnSuspend.addEventListener('click', () => {
+        saveSurveyDraft();
+        showToast('一時保存して中断しました');
+        setTimeout(() => showScreen('screen-home'), 500);
+    });
+
+    btnCancel.addEventListener('click', () => {
+        if (confirm('保存せずに終了しますか？現在入力中のデータは破棄されます。')) {
+            localStorage.removeItem(DRAFT_KEY);
+            form.reset();
+            document.getElementById('survey-date').valueAsDate = new Date();
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('survey-start-time').value = timeStr;
+            document.getElementById('areas-container').innerHTML = '';
+            areaCount = 0;
+            addAreaBlock();
+            showScreen('screen-home');
+        }
     });
 
     // Auto-save whenever an input changes
@@ -143,20 +242,20 @@ function addAreaBlock(forceId = null, draftData = null) {
         </div>
         
         <div class="input-group">
-            <label>植生タイプ</label>
-            <div class="checkbox-grid">
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="A"> A: 落葉広葉樹林</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="B"> B: 常緑広葉樹林</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="C"> C: マツ林</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="D"> D: 伐採跡地</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="E"> E: スギ・ヒノキ幼齢林</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="F"> F: スギ・ヒノキ老齢林</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="G"> G: スギヒノキ植林(制限無)</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="H"> H: 草地</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="I"> I: カラマツ林</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="J"> J: 常緑針葉樹林</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="K"> K: 竹林</label>
-                <label class="checkbox-label"><input type="radio" name="veg_${areaId}" value="L"> L: その他</label>
+            <label>植生タイプ (最大3つまで)</label>
+            <div class="checkbox-grid veg-group" id="veg-group-${areaId}">
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="A"> A: 落葉広葉樹林</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="B"> B: 常緑広葉樹林</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="C"> C: マツ林</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="D"> D: 伐採跡地</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="E"> E: スギ・ヒノキ幼齢林</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="F"> F: スギ・ヒノキ老齢林</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="G"> G: スギヒノキ植林(制限無)</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="H"> H: 草地</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="I"> I: カラマツ林</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="J"> J: 常緑針葉樹林</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="K"> K: 竹林</label>
+                <label class="checkbox-label"><input type="checkbox" name="veg_${areaId}" value="L"> L: その他</label>
             </div>
         </div>
         
@@ -181,9 +280,12 @@ function addAreaBlock(forceId = null, draftData = null) {
         </div>
 
         <h5 style="margin:20px 0 10px; color:var(--text-muted);">シカ生体 (カウント)</h5>
-        ${createCounterHTML(`area_${areaId}_deer`, '目撃')}
-        ${createCounterHTML(`area_${areaId}_footprint`, '足跡')}
-        ${createCounterHTML(`area_${areaId}_voice`, '鳴き声')}
+        <div class="checkbox-grid">
+            ${createCounterHTML(`area_${areaId}_deer_male`, '目撃(オス)')}
+            ${createCounterHTML(`area_${areaId}_deer_female`, '目撃(メス)')}
+            ${createCounterHTML(`area_${areaId}_footprint`, '足跡')}
+            ${createCounterHTML(`area_${areaId}_voice`, '鳴き声')}
+        </div>
 
         <h5 style="margin:20px 0 10px; color:var(--text-muted);">糞塊: 10粒以上</h5>
         <div class="checkbox-grid">
@@ -206,10 +308,30 @@ function addAreaBlock(forceId = null, draftData = null) {
     `;
     container.appendChild(div);
 
+    const vegGroup = div.querySelector(`#veg-group-${areaId}`);
+    vegGroup.addEventListener('change', (e) => {
+        if (e.target.type === 'checkbox') {
+            const checked = vegGroup.querySelectorAll('input[type="checkbox"]:checked');
+            if (checked.length >= 3) {
+                vegGroup.querySelectorAll('input[type="checkbox"]:not(:checked)').forEach(cb => cb.disabled = true);
+            } else {
+                vegGroup.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.disabled = false);
+            }
+            saveSurveyDraft();
+        }
+    });
+
     if (draftData) {
         if (draftData.vegetation) {
-            const radio = div.querySelector(`input[name="veg_${areaId}"][value="${draftData.vegetation}"]`);
-            if (radio) radio.checked = true;
+            const vegArray = draftData.vegetation.split(', ');
+            vegArray.forEach(v => {
+                const cb = div.querySelector(`input[name="veg_${areaId}"][value="${v}"]`);
+                if (cb) cb.checked = true;
+            });
+            const checked = div.querySelectorAll(`input[name="veg_${areaId}"]:checked`);
+            if (checked.length >= 3) {
+                div.querySelectorAll(`input[name="veg_${areaId}"]:not(:checked)`).forEach(cb => cb.disabled = true);
+            }
         }
         if (draftData.undergrowth) div.querySelector(`select[name="undergrowth_${areaId}"]`).value = draftData.undergrowth;
         if (draftData.sasa) div.querySelector(`select[name="sasa_${areaId}"]`).value = draftData.sasa;
@@ -220,7 +342,8 @@ function addAreaBlock(forceId = null, draftData = null) {
             const disp = div.querySelector(`#${key}`);
             if(inp && disp) { inp.value = val || 0; disp.textContent = val || 0; }
         };
-        setCounter(`area_${areaId}_deer`, draftData.deer);
+        setCounter(`area_${areaId}_deer_male`, draftData.deer_male);
+        setCounter(`area_${areaId}_deer_female`, draftData.deer_female);
         setCounter(`area_${areaId}_footprint`, draftData.footprint);
         setCounter(`area_${areaId}_voice`, draftData.voice);
         setCounter(`area_${areaId}_pellet_new`, draftData.pellet_new);
@@ -256,8 +379,8 @@ function saveSurvey() {
     document.querySelectorAll('.area-block').forEach(block => {
         const blockId = block.id.split('-').pop();
         
-        const vegRadio = block.querySelector(`input[name="veg_${blockId}"]:checked`);
-        const vegetation = vegRadio ? vegRadio.value : '';
+        const vegBoxes = block.querySelectorAll(`input[name="veg_${blockId}"]:checked`);
+        const vegetation = Array.from(vegBoxes).map(cb => cb.value).join(', ');
         const undergrowth = block.querySelector(`select[name="undergrowth_${blockId}"]`).value;
         const sasa = block.querySelector(`select[name="sasa_${blockId}"]`).value;
         const notes = block.querySelector(`input[name="notes_${blockId}"]`).value;
@@ -268,7 +391,8 @@ function saveSurvey() {
             undergrowth: undergrowth,
             sasa: sasa,
             notes: notes,
-            deer: parseInt(block.querySelector(`#input-area_${blockId}_deer`).value) || 0,
+            deer_male: parseInt(block.querySelector(`#input-area_${blockId}_deer_male`).value) || 0,
+            deer_female: parseInt(block.querySelector(`#input-area_${blockId}_deer_female`).value) || 0,
             footprint: parseInt(block.querySelector(`#input-area_${blockId}_footprint`).value) || 0,
             voice: parseInt(block.querySelector(`#input-area_${blockId}_voice`).value) || 0,
             pellet_new: parseInt(block.querySelector(`#input-area_${blockId}_pellet_new`).value) || 0,
@@ -327,18 +451,20 @@ function saveSurveyDraft() {
     const areas = [];
     document.querySelectorAll('.area-block').forEach(block => {
         const blockId = block.id.split('-').pop();
-        const vegRadio = block.querySelector(`input[name="veg_${blockId}"]:checked`);
+        const vegBoxes = block.querySelectorAll(`input[name="veg_${blockId}"]:checked`);
+        const vegetation = Array.from(vegBoxes).map(cb => cb.value).join(', ');
         const undergrowth = block.querySelector(`select[name="undergrowth_${blockId}"]`).value;
         const sasa = block.querySelector(`select[name="sasa_${blockId}"]`).value;
         const notes = block.querySelector(`input[name="notes_${blockId}"]`).value;
         
         areas.push({
             id: blockId,
-            vegetation: vegRadio ? vegRadio.value : '',
+            vegetation: vegetation,
             undergrowth: undergrowth,
             sasa: sasa,
             notes: notes,
-            deer: parseInt(block.querySelector(`#input-area_${blockId}_deer`).value) || 0,
+            deer_male: parseInt(block.querySelector(`#input-area_${blockId}_deer_male`).value) || 0,
+            deer_female: parseInt(block.querySelector(`#input-area_${blockId}_deer_female`).value) || 0,
             footprint: parseInt(block.querySelector(`#input-area_${blockId}_footprint`).value) || 0,
             voice: parseInt(block.querySelector(`#input-area_${blockId}_voice`).value) || 0,
             pellet_new: parseInt(block.querySelector(`#input-area_${blockId}_pellet_new`).value) || 0,
@@ -500,7 +626,7 @@ function updateAnalysisDashboard(selectedMesh) {
     filteredLogs.forEach(log => {
         tAreas += log.areas.length;
         log.areas.forEach(a => {
-            tDeer += a.deer;
+            tDeer += (a.deer_male || 0) + (a.deer_female || 0) + (a.deer || 0);
             tPelletsHigh += (a.pellet_new + a.pellet_mid + a.pellet_old);
         });
     });
@@ -530,7 +656,7 @@ function exportToCSV() {
     // Header
     const headers = [
         "ID", "日付", "開始", "終了", "天候", "業務名", "調査者", "メッシュNO", "調査不能",
-        "区域番号", "植生(A-L)", "下層植生", "ササ", "シカ目撃", "足跡", "鳴き声",
+        "区域番号", "植生(A-L)", "下層植生", "ササ", "シカ目撃(オス)", "シカ目撃(メス)", "足跡", "鳴き声",
         "糞塊10+新", "糞塊10+中", "糞塊10+旧", "糞塊10-新", "糞塊10-中", "糞塊10-旧", "備考"
     ];
     csvContent += headers.join(",") + "\n";
@@ -543,7 +669,9 @@ function exportToCSV() {
                 area.vegetation, 
                 area.undergrowth,
                 area.sasa || '',
-                area.deer, area.footprint, area.voice,
+                area.deer_male !== undefined ? area.deer_male : (area.deer || 0),
+                area.deer_female || 0,
+                area.footprint, area.voice,
                 area.pellet_new, area.pellet_mid, area.pellet_old, 
                 area.pellet_under10_new || 0, area.pellet_under10_mid || 0, area.pellet_under10_old || 0,
                 `"${area.notes || ''}"`
