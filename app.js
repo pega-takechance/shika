@@ -10,13 +10,32 @@ let areaCount = 0;
 document.addEventListener('DOMContentLoaded', () => {
     loadLogs();
     loadJobs();
-    injectVirtualData();
     setupNavigation();
     setupForm();
     setupLogManager();
     setupJobSettings();
     setupDynamicPadding();
 });
+
+function updateResumeButtonVisibility() {
+    const btnResume = document.getElementById('btn-resume-survey');
+    if (!btnResume) return;
+    
+    const draftText = localStorage.getItem(DRAFT_KEY);
+    let hasDraft = false;
+    if (draftText) {
+        try {
+            const draft = JSON.parse(draftText);
+            if (draft.areas && draft.areas.length > 0) hasDraft = true;
+        } catch(e) {}
+    }
+    
+    if (hasDraft) {
+        btnResume.style.display = 'flex';
+    } else {
+        btnResume.style.display = 'none';
+    }
+}
 
 function setupDynamicPadding() {
     const adjustPadding = () => {
@@ -41,52 +60,6 @@ function setupDynamicPadding() {
     });
     
     setTimeout(adjustPadding, 100);
-}
-
-// Virtual Data Injection for Debugging
-function injectVirtualData() {
-    if (currentLogs.length === 0) {
-        const dummyData = [
-            {
-                id: "dummy_1",
-                timestamp: new Date().toISOString(),
-                date: "2026-04-20",
-                start: "09:00",
-                end: "10:30",
-                weather: "晴れ",
-                project: "仮想データテスト調査",
-                surveyor: "テスト調査員A",
-                mesh: "5339-12",
-                cannot_survey: "無",
-                areas: [
-                    { id: 1, vegetation: "A, C", undergrowth: "少ない", sasa: "なし", deer_male: 2, deer_female: 1, footprint: 0, voice: 1, pellet_new: 10, pellet_mid: 5, pellet_old: 2, pellet_under10_new: 0, pellet_under10_mid: 0, pellet_under10_old: 0, notes: "シカを目撃" },
-                    { id: 2, vegetation: "B", undergrowth: "多い", sasa: "多い", deer_male: 0, deer_female: 0, footprint: 3, voice: 0, pellet_new: 0, pellet_mid: 15, pellet_old: 8, pellet_under10_new: 2, pellet_under10_mid: 1, pellet_under10_old: 0, notes: "足跡多数" }
-                ]
-            },
-            {
-                id: "dummy_2",
-                timestamp: new Date().toISOString(),
-                date: "2026-04-21",
-                start: "11:00",
-                end: "12:00",
-                weather: "曇り",
-                project: "仮想データテスト調査",
-                surveyor: "テスト調査員B",
-                mesh: "5339-13",
-                cannot_survey: "無",
-                areas: [
-                    { id: 1, vegetation: "D", undergrowth: "極多", sasa: "少ない", deer_male: 0, deer_female: 3, footprint: 1, voice: 0, pellet_new: 0, pellet_mid: 0, pellet_old: 0, pellet_under10_new: 0, pellet_under10_mid: 0, pellet_under10_old: 0, notes: "メス鹿の群れ" }
-                ]
-            }
-        ];
-        currentLogs = dummyData;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(currentLogs));
-        
-        if (!jobNames.includes("仮想データテスト調査")) {
-            jobNames.push("仮想データテスト調査");
-            localStorage.setItem(JOBS_KEY, JSON.stringify(jobNames));
-        }
-    }
 }
 
 function loadJobs() {
@@ -159,6 +132,7 @@ function setupJobSettings() {
 function setupNavigation() {
     const defaultScreen = 'screen-home';
     const btnBackHome = document.getElementById('btn-back-home');
+    const btnResume = document.getElementById('btn-resume-survey');
     
     // Set initial date to today
     document.getElementById('survey-date').valueAsDate = new Date();
@@ -168,9 +142,51 @@ function setupNavigation() {
     const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
     document.getElementById('survey-start-time').value = timeStr;
 
+    updateResumeButtonVisibility();
+
+    if (btnResume) {
+        btnResume.addEventListener('click', () => {
+            restoreSurveyDraft();
+            showScreen('screen-survey');
+        });
+    }
+
     document.querySelectorAll('[data-target]').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const targetId = btn.getAttribute('data-target');
+            
+            if (targetId === 'screen-survey') {
+                const draftText = localStorage.getItem(DRAFT_KEY);
+                let hasDraft = false;
+                if (draftText) {
+                    try {
+                        const draft = JSON.parse(draftText);
+                        if (draft.areas && draft.areas.length > 0) hasDraft = true;
+                    } catch(e) {}
+                }
+                
+                if (hasDraft) {
+                    if (!confirm('中断された未保存のデータがあります。破棄して新しく開始しますか？')) {
+                        return; // Cancel navigation
+                    }
+                    localStorage.removeItem(DRAFT_KEY);
+                    updateResumeButtonVisibility();
+                }
+                
+                // Reset form completely for new survey
+                const form = document.getElementById('survey-form');
+                form.reset();
+                document.getElementById('survey-date').valueAsDate = new Date();
+                const now = new Date();
+                const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                document.getElementById('survey-start-time').value = timeStr;
+                document.getElementById('areas-container').innerHTML = '';
+                areaCount = 0;
+                
+                loadLastBaseInfo();
+                addAreaBlock();
+            }
+            
             showScreen(targetId);
         });
     });
@@ -223,12 +239,6 @@ function setupForm() {
     const form = document.getElementById('survey-form');
     const btnSuspend = document.getElementById('btn-suspend-survey');
     const btnCancel = document.getElementById('btn-cancel-survey');
-    
-    // Add first area by default, or restore from draft
-    if (!restoreSurveyDraft()) {
-        loadLastBaseInfo();
-        addAreaBlock();
-    }
 
     btnAddArea.addEventListener('click', () => {
         addAreaBlock();
@@ -244,6 +254,7 @@ function setupForm() {
     btnSuspend.addEventListener('click', () => {
         saveSurveyDraft();
         showToast('一時保存して中断しました');
+        updateResumeButtonVisibility();
         setTimeout(() => showScreen('screen-home'), 500);
     });
 
@@ -257,7 +268,7 @@ function setupForm() {
             document.getElementById('survey-start-time').value = timeStr;
             document.getElementById('areas-container').innerHTML = '';
             areaCount = 0;
-            addAreaBlock();
+            updateResumeButtonVisibility();
             showScreen('screen-home');
         }
     });
@@ -486,6 +497,7 @@ function saveSurvey() {
     currentLogs.push(surveyData);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(currentLogs));
     localStorage.removeItem(DRAFT_KEY);
+    updateResumeButtonVisibility();
     
     // 前回の入力内容を踏襲するために保存
     localStorage.setItem('deer_survey_last_base_info', JSON.stringify({
@@ -733,20 +745,25 @@ function exportToCSV() {
     ];
     csvContent += headers.join(",") + "\n";
 
+    const escapeCSV = (str) => {
+        if (str === null || str === undefined) return '""';
+        return `"${String(str).replace(/"/g, '""')}"`;
+    };
+
     currentLogs.forEach(log => {
         log.areas.forEach(area => {
             const row = [
-                `"${log.id}"`, `"${log.date}"`, `"${log.start}"`, `"${log.end}"`, `"${log.weather}"`, `"${log.project || ''}"`, `"${log.surveyor || ''}"`, `"${log.mesh || ''}"`, `"${log.cannot_survey || '無'}"`,
+                escapeCSV(log.id), escapeCSV(log.date), escapeCSV(log.start), escapeCSV(log.end), escapeCSV(log.weather), escapeCSV(log.project), escapeCSV(log.surveyor), escapeCSV(log.mesh), escapeCSV(log.cannot_survey || '無'),
                 area.id, 
-                `"${area.vegetation || ''}"`, 
-                `"${area.undergrowth || ''}"`,
-                `"${area.sasa || ''}"`,
+                escapeCSV(area.vegetation), 
+                escapeCSV(area.undergrowth),
+                escapeCSV(area.sasa),
                 area.deer_male !== undefined ? area.deer_male : (area.deer || 0),
                 area.deer_female || 0,
                 area.footprint, area.voice,
                 area.pellet_new, area.pellet_mid, area.pellet_old, 
                 area.pellet_under10_new || 0, area.pellet_under10_mid || 0, area.pellet_under10_old || 0,
-                `"${area.notes || ''}"`
+                escapeCSV(area.notes)
             ];
             csvContent += row.join(",") + "\n";
         });
